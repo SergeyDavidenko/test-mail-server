@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  mailserver-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder  # Use builder stage for dev dependencies
+    image: test-mail-server:dev
+    container_name: test-mail-server-dev
+    
+    # Ports
+    ports:
+      - "25:25"     # SMTP
+      - "3000:3000" # API
+      - "5678:5678" # Debug port (optional)
+    
+    # Environment variables for development
+    environment:
+      - SMTP_PORT=25
+      - API_PORT=3000
+      - MAIL_DOMAIN=test-mail.example.com
+      - RETENTION_HOURS=1  # Shorter for testing
+      - MAX_EMAILS_PER_ADDRESS=50
+      - HOST=0.0.0.0
+      - LOG_LEVEL=DEBUG  # Detailed logs
+      - DEBUG=true
+      - CLEANUP_INTERVAL_MINUTES=5  # More frequent for testing
+    
+    # Volume mounting for live reload
+    volumes:
+      - .:/app
+      - /app/__pycache__  # Exclude Python cache
+      - ./logs:/app/logs
+    
+    # Development command with auto-restart
+    command: >
+      sh -c "pip install --no-cache-dir watchdog &&
+        python -c 'import uvicorn; uvicorn.run(\"main:app\", host=\"0.0.0.0\", port=3000, reload=True, log_level=\"debug\")'"
+    
+    # Development dependencies
+    depends_on: []
+    
+    # Network
+    networks:
+      - mailserver-dev-network
+    
+    # Don't auto-restart in dev mode
+    restart: "no"
+
+
+networks:
+  mailserver-dev-network:
+    driver: bridge 

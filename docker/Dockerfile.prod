@@ -1,0 +1,86 @@
+# Production-ready Dockerfile with maximum optimizations
+
+# Build stage
+FROM python:3.13.4-slim as builder
+
+# Install system dependencies for building
+RUN apt-get update && apt-get install -y \
+    gcc \
+    musl-dev \
+    libffi-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get autoremove -y \
+    && apt-get autoclean
+
+# Create virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Upgrade pip and wheel for faster installation
+RUN pip install --no-cache-dir --upgrade pip wheel
+
+# Copy requirements and install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir --no-deps -r requirements.txt \
+    && pip check  # Check package compatibility
+
+# Production stage
+FROM python:3.13.4-slim as production
+
+# Metadata
+LABEL maintainer="Mail Server Team" \
+    description="FastAPI Test Mail Server - Production" \
+    version="2.0.0" \
+    python.version="3.13.4" \
+    org.opencontainers.image.source="https://github.com/your-org/test-mail-server" \
+    org.opencontainers.image.documentation="https://github.com/your-org/test-mail-server/blob/main/README.md"
+
+# Create system user for security
+RUN groupadd -r -g 1001 mailserver && \
+    useradd -r -g mailserver -u 1001 -m -d /app mailserver
+
+# Set working directory
+WORKDIR /app
+
+# Copy virtual environment from builder
+COPY --from=builder --chown=mailserver:mailserver /opt/venv /opt/venv
+
+# Add venv to PATH
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy only necessary application files
+COPY --chown=mailserver:mailserver main.py config.py models.py ./
+
+# Create necessary directories with correct permissions
+RUN mkdir -p /app/logs /tmp/mailserver && \
+    chown -R mailserver:mailserver /app /tmp/mailserver
+
+# Security and performance settings
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONHASHSEED=random \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    SMTP_PORT=25 \
+    API_PORT=3000 \
+    HOST=0.0.0.0 \
+    LOG_LEVEL=INFO \
+    TMPDIR=/tmp/mailserver
+
+# Switch to non-root user
+USER 1001:1001
+
+# Expose ports
+EXPOSE 25 3000
+
+# Health check with more detailed verification
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD python -c "import requests; import sys; r=requests.get('http://localhost:3000/docs', timeout=5); sys.exit(0 if r.status_code==200 else 1)" || exit 1
+
+# Use exec form for proper signal handling
+CMD ["python", "-u", "main.py"]
+
+# Security labels
+LABEL security.scan="enabled" \
+    security.non-root="true" \
+    security.read-only="false" 

@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  mailserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: test-mail-server:latest
+    container_name: test-mail-server
+    
+    # Ports
+    ports:
+      - "25:25"     # SMTP
+      - "3000:3000" # API
+    
+    # Environment variables
+    environment:
+      - SMTP_PORT=25
+      - API_PORT=3000
+      - MAIL_DOMAIN=test-mail.example.com
+      - RETENTION_HOURS=4
+      - MAX_EMAILS_PER_ADDRESS=100
+      - HOST=0.0.0.0
+      - LOG_LEVEL=INFO
+      - CLEANUP_INTERVAL_MINUTES=30
+    # - API_KEY=your-custom-api-key  # Uncomment for custom key
+    
+    # Volumes for logs (optional)
+    volumes:
+      - ./logs:/app/logs
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Healthcheck
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:3000/docs')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Network
+    networks:
+      - mailserver-network
+
+  # Additional service for testing (optional)
+  test-client:
+    image: python:3.13.4-slim
+    container_name: mail-test-client
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: sleep infinity  # Keep container running for tests
+    networks:
+      - mailserver-network
+    depends_on:
+      - mailserver
+    profiles:
+      - testing  # Only runs with testing profile
+
+networks:
+  mailserver-network:
+    driver: bridge
+
+volumes:
+  logs:
+    driver: local 
