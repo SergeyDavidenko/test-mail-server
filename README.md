@@ -23,7 +23,7 @@ Modern FastAPI-based test mail server with SMTP support. A complete replacement 
 
 ```
 test-mail-server/
-├── app/                          # Main application package
+├── app/                         # Main application package
 │   ├── __init__.py              # Package initialization
 │   ├── main.py                  # FastAPI application
 │   ├── config.py                # Configuration management
@@ -53,9 +53,9 @@ test-mail-server/
 │   └── README.md                # Detailed documentation
 ├── requirements.txt             # Production dependencies
 ├── requirements-dev.txt         # Development dependencies
-├── pyproject.toml              # Modern Python project configuration
-├── Makefile                    # Docker management commands
-└── .dockerignore               # Docker ignore file
+├── pyproject.toml               # Modern Python project configuration
+├── Makefile                     # Docker management commands
+└── .dockerignore                # Docker ignore file
 ```
 
 ## 🛠 Installation
